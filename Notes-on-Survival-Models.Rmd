@@ -1,0 +1,238 @@
+---
+title: "Survival Models"
+author: "Kevin Schoelz"
+date: "May 20, 2019"
+output:
+  tufte::tufte_html:
+    toc: true
+    toc_depth: 2
+---
+
+
+```{r setup, include=FALSE}
+# Clear the environment
+rm(list = ls())
+gc(reset = TRUE)
+
+# Notebook Settings
+knitr::opts_chunk$set(
+  include = TRUE,
+  cache = TRUE,
+  collapse = TRUE,
+  echo = TRUE,
+  message = FALSE,
+  tidy = FALSE,
+  warning = FALSE,
+  comment = "  ",
+  dev = "png",
+  dev.args = list(bg = '#FFFFF8'),
+  dpi = 300,
+  fig.align = "center",
+  #fig.width = 7,
+  #fig.asp = 0.618,
+  fig.show = "hold",
+  out.width = "90%"
+)
+
+# Load useful libraries
+library(tufte)
+library(tidyverse)
+library(cowplot)
+library(gridExtra)
+
+```
+
+
+I am working on getting a better handle on survival modeling techniques, and want to write up a little of what I have seen so far. In survival modeling we are looking at scenarios in which an event happens. We are interested in being able to estimate the time until the event happens. Survival models can be used to look at the spread of disease, characterizing mechanical failure, or looking at death rates.
+
+We are interested in estimating $S(t)$, the survival function. The survival function is defined as
+
+$$
+S(t) = Pr(T>t)
+$$
+This is the probability that the event happens after some set time $T$. We can also define the lifetime distribution time 
+
+$$
+F(t) = 1 - S(t)
+$$
+
+We also have
+
+$$
+f(t) = \frac{dF(t)}{dt}
+$$
+where $f(t)$ is known as the event density. It is common to describe another function, known as the hazard function, $\lambda(t)$. The hazard function is a measure of the risk of the event happening at a given time. We define it as
+
+$$
+\lambda(t) = \lim_{\delta t \rightarrow 0} \frac{Pr(t < T < t + \delta t | T >t)}{\delta t}
+$$
+
+Note that
+
+$$
+Pr(t<T<t+\delta t | T > t) = Pr(t + \delta t | T > t) - Pr(t<T | T >t)
+$$
+
+From this defintion, we can see that 
+
+$$
+\lambda(t) = -\frac{S'(t)}{S(t)}
+$$
+
+We can solve this for $S(t)$ to show that 
+
+$$
+\begin{eqnarray}
+S'(t) =& -\lambda(t)S(t) \\
+S(t) =& ~ \exp \left( \int_{0}^{t}\lambda(t)dt\right)\\
+\end{eqnarray}
+$$
+
+
+
+## Constant Hazard
+
+Let's say the hazard rate is constant. Then we can write
+
+$$
+\lambda(t) = \lambda
+$$
+
+The total hazard is given as 
+
+$$
+H(t) = \int_{0}^{t}\lambda dt = \lambda t
+$$
+and the survival function is
+
+$$
+S(t) = e^{\lambda t}
+$$
+```{r constant_hazard, echo=FALSE}
+
+t = seq(0,1.0, length.out = 100)
+lambda = 10
+
+H = lambda*t
+S = exp(-lambda*t)
+cdf = 1 - S
+pdf = lambda*exp(-lambda*t)
+
+weibullHazard_df <- data.frame(t, H, S)
+
+#head(constantHazard_df)
+
+plot_S <- ggplot(data = weibullHazard_df, aes(x = t, y = S)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Probabilty of Survival") +
+  xlab("Time")
+
+plot_H <- ggplot(data = weibullHazard_df, aes(x = t, y = H)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Hazard function") +
+  xlab("Time")
+
+plot_cdf <- ggplot(data = weibullHazard_df, aes(x = t, y = cdf)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Cumulative Distribution Function") +
+  xlab("Time")
+
+plot_pdf <- ggplot(data = weibullHazard_df, aes(x=t, y=pdf)) +
+  geom_line(color="DodgerBlue4") +
+  ylab("Probability Density Function") +
+  xlab("Time")
+
+grid.arrange(plot_S, plot_H, plot_cdf, plot_pdf, nrow = 2)
+
+  
+
+```
+
+## Weibull Distribution
+
+In general the hazard function will not be constant. A common hazard function is given as
+
+$$
+\lambda(t) = \left( \frac{\sigma}{\alpha^{\sigma}} \right) t^{\sigma-1}
+$$
+
+where we call $\sigma$ the shape parameter, and $\alpha$ the scale parameter. (This is the notation used for the Stan programming language). The cumulative hazard is given as
+
+$$
+\begin{eqnarray}
+H(t) =& \int_{0}^{t}\lambda(t)dt \\
+ =& \int_{0}^{t} \left( \frac{\sigma}{\alpha^{\sigma}} \right) t^{\sigma-1}dt \\
+ =& \frac{1}{\sigma}\left( \frac{\sigma}{\alpha^{\sigma}} \right)t^{\sigma} \\
+ =& \left( \frac{t}{\alpha} \right)^{\sigma} \\
+\end{eqnarray}
+$$
+
+The survival function $S(t)$ is given as
+
+$$
+\begin{eqnarray}
+S(t) =& \exp \left( H(t) \right) \\
+=& \exp \left[ \left( \frac{t}{\alpha} \right)^{\sigma} \right]
+\end{eqnarray}
+$$
+The cumulative density function is given by
+
+$$
+\begin{eqnarray}
+F(t) =& 1 - S(t) \\
+ =& 1 - \exp \left[ \left( \frac{t}{\alpha} \right)^{\sigma} \right]
+\end{eqnarray}
+$$
+
+We can also compute the probabilty distribution funtion
+
+$$
+\begin{eqnarray}
+f(t) =& \frac{dF(t)}{dt} \\
+=& \sigma\frac{t^{\sigma - 1}}{\alpha^{\sigma}}\exp \left[ \left( \frac{t}{\alpha}\right)^{\sigma} \right]
+\end{eqnarray}
+$$
+This is also known as the Weibull distribution.
+
+```{r weibull_hazard, echo=FALSE}
+
+t = seq(0,6.0, length.out = 100)
+alpha = 3
+sigma = 3
+
+lambda = (sigma/alpha^sigma)*t^(sigma - 1)
+H = (t/alpha)^sigma
+S = exp(-lambda)
+cdf = 1 - S
+pdf = lambda*exp(-lambda*t)
+
+
+constantHazard_df <- data.frame(t, H, S)
+
+#head(constantHazard_df)
+
+plot_S <- ggplot(data = constantHazard_df, aes(x = t, y = S)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Probabilty of Survival") +
+  xlab("Time")
+
+plot_H <- ggplot(data = constantHazard_df, aes(x = t, y = H)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Hazard function") +
+  xlab("Time")
+
+plot_cdf <- ggplot(data = constantHazard_df, aes(x = t, y = cdf)) + 
+  geom_line(color="DodgerBlue4") +
+  ylab("Cumulative Distribution Function") +
+  xlab("Time")
+
+plot_pdf <- ggplot(data = constantHazard_df, aes(x=t, y=pdf)) +
+  geom_line(color="DodgerBlue4") +
+  ylab("Probability Density Function") +
+  xlab("Time")
+
+grid.arrange(plot_S, plot_H, plot_cdf, plot_pdf, nrow = 2)
+
+  
+
+```
