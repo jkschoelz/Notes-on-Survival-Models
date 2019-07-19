@@ -38,6 +38,9 @@ if (window.hljs) {
 
 
 
+
+
+
 </head>
 
 <body>
@@ -46,132 +49,116 @@ if (window.hljs) {
 
 
 <h1 class="title toc-ignore">Survival Models</h1>
-<h4 class="author"><em>Kevin Schoelz</em></h4>
-<h4 class="date"><em>May 20, 2019</em></h4>
+<h4 class="author">Kevin Schoelz</h4>
+<h4 class="date">May 20, 2019</h4>
 
 
 <div id="TOC">
 <ul>
-<li><a href="#terminology">Terminology</a></li>
-<li><a href="#right-censored-data">Right-censored data</a></li>
+<li><a href="#terminology">Terminology</a><ul>
+<li><a href="#right-censored-data">Right censored data</a></li>
+</ul></li>
+<li><a href="#hazard-function-examples">Hazard function examples</a><ul>
+<li><a href="#parameterized-models-exponential">Parameterized Models: Exponential</a></li>
+<li><a href="#parameterized-models-weibull">Parameterized Models: Weibull</a></li>
+</ul></li>
 </ul>
 </div>
 
-<p>I am working on getting a better handle on survival modeling techniques, and want to write up a little of what I have seen so far. In survival modeling we are looking at scenarios in which an event happens. We are interested in being able to estimate the time until the event happens. Survival models can be used to look at the spread of disease, characterizing mechanical failure, or looking at death rates. In this notebook, I will talk a little bit about survival models, following the discussion and notation of Ibrahim <em>et al</em> in their book <em>Bayesian Survival Analysis</em>.</p>
-<div id="terminology" class="section level2">
-<h2>Terminology</h2>
-<p>Let <span class="math inline">\(T\)</span> be a continous random variable that represents the time until the event of interest happens for the individual in question. We can define <span class="math inline">\(f(t)\)</span> to be the probability density function (pdf) describing the distribution of <span class="math inline">\(T\)</span>. Let <span class="math inline">\(F(t)\)</span> be the cumulative desnity function defined as</p>
+<p>I am working to get a better handle on survival modeling, and want to write up a little of what I have seen so far. In survival modeling we are analyzing “time to event”. So we have some event, either a death, occurence of a disease, failure of a mechanical part, and we are interested how long it takes for the event to occur. In this notebook, I am going to try and lay out some of the basic ideas behind survival analysis. We will be using the notation adopted by Ibrahim <em>et al</em> in their book <em>Bayesian Survival Analysis</em>.</p>
+<div id="terminology" class="section level1">
+<h1>Terminology</h1>
+<p>Let <span class="math inline">\(T\)</span> be a continous random variable that represents the time until the event of interest happens for the individual in question. We can define <span class="math inline">\(f(t)\)</span> to be the probability density function (pdf) describing the distribution of <span class="math inline">\(~T\)</span>. Let <span class="math inline">\(F(t)\)</span> be the cumulative desnity function defined as</p>
 <p><span class="math display">\[
 F(t) = Pr(T \leq t) = \int_{0}^{t}f(u)du
 \]</span></p>
 <p>We can also define a function <span class="math inline">\(S(t)\)</span> called the survival function defined as</p>
 <p><span class="math display">\[
 S(t) = 1 - F(t) = Pr(T&gt;t)
-\]</span> This function <span class="math inline">\(S(t)\)</span> gives the probability of an individual surviving until time <span class="math inline">\(t\)</span>. We can define another function <span class="math inline">\(h(t)\)</span> is defined as the instantaneous of failure at time <span class="math inline">\(t\)</span> and is given by</p>
+\]</span></p>
+<p>The survival function <span class="math inline">\(S(t)\)</span> then is just the probability of surviving until time <span class="math inline">\(t\)</span>.</p>
+<p>We can define one more function called the hazard function. The hazard function is roughly a measure of the risk that the event will occur in a given time interval. We define the hazard function as</p>
 <p><span class="math display">\[
 h(t) = \lim_{\Delta t \rightarrow 0}\frac{Pr(t &lt;T \leq t+\Delta t | t&lt;T)}{\Delta t}
 \]</span></p>
-<p>Using Bayes’ rule we can rewrite as a joint probability</p>
+<p>By manipulating this expression, we can rewrite the hazard function in a more familiar form. Using Bayes’ rule we can rewrite as a joint probability</p>
 <p><span class="math display">\[
 \begin{eqnarray}
 h(t) =&amp; &amp;\lim_{\Delta t \rightarrow 0} &amp;\frac{Pr(t &lt;T, T \leq t+\Delta t | t&lt;T)}{\Delta t} \\
 =&amp; &amp;\lim_{\Delta t \rightarrow 0} &amp;\frac{Pr(T&lt;t+\Delta t | t&lt;T)}{\Delta t} \\
 =&amp; &amp;\lim_{\Delta t \rightarrow 0} &amp;\frac{Pr(T&lt;t+\Delta t , t&lt;T )}{Pr(t&lt;T)\Delta t} \\
 =&amp; &amp;\lim_{\Delta t \rightarrow 0} &amp;\frac{Pr(t&lt;T&lt;t+\Delta t )}{S(t)\Delta t} \\
+=&amp; &amp;\lim_{\Delta t \rightarrow 0} &amp;\frac{f(t)\Delta t}{S(t)\Delta t}\\
 =&amp; &amp; &amp;\frac{f(t)}{S(t)} \\
 \end{eqnarray}
 \]</span></p>
 <p>Since <span class="math inline">\(f(t) = \frac{dF}{dt} = -\frac{dS}{dt}\)</span> we can express the survival function in terms of the hazard as</p>
 <p><span class="math display">\[
-\begin{eqnarray}
-h(t) =&amp; &amp;-\frac{1}{S(t)}\frac{dS(t)}{dt}\\
-S(t) =&amp; &amp;\exp \left( - \int_{0}^{t} h(u)du\right) \\ 
-\end{eqnarray}
-\]</span> Finally, we define the cumulative hazard as</p>
+h(t) = -\frac{1}{S(t)}\frac{dS(t)}{dt}\\
+\]</span></p>
+<p>So we have a first order differential equation. Solving the equation, we can write the survival function <span class="math inline">\(S(t)\)</span> in terms of the hazard function <span class="math inline">\(h(t)\)</span>. Then</p>
+<p><span class="math display">\[
+S(t) = \exp \left( - \int_{0}^{t} h(u)du\right) \\ 
+\]</span></p>
+<p>Sometimes it is helpful to define a cumulative hazard function</p>
 <p><span class="math display">\[
 H(t) = \int_{0}^{t} h(u)du
 \]</span></p>
-<div id="parameterized-models-exponential" class="section level3">
-<h3>Parameterized Models: Exponential</h3>
-</div>
-<div id="parameterized-models-weibull" class="section level3">
-<h3>Parameterized Models: Weibull</h3>
-</div>
-</div>
+<p>what is going on here</p>
 <div id="right-censored-data" class="section level2">
-<h2>Right-censored data</h2>
+<h2>Right censored data</h2>
 <p>Many times, we do not have either the time or the resources to record data the whole time. In this case, some of the individuals will go through the entire observed period without experiencing an event. We refer to this as the data being right-censored. We want to write down the liklihood of a set of parameters given some data. Suppose the survival data for the <span class="math inline">\(i\text{th}\)</span> individual is given by <span class="math inline">\((y_{i}, \nu_{i})\)</span> where <span class="math inline">\(y_{i}\)</span> is the last known survival time, and <span class="math inline">\(\nu_{i}\)</span> is an indicator that tells you whether the data has been censored or not. If <span class="math inline">\(\nu_{i} = 1\)</span> we have a censored event. If <span class="math inline">\(\nu_{i}=0\)</span> then data is uncensored and the event time <span class="math inline">\(y_{i}\)</span> is actually the true event time. Suppose we have <span class="math inline">\(N\)</span> individuals. Then in this censored model, the liklihood of the data given model parameters is</p>
 <p><span class="math display">\[
 \mathcal{L} = \prod_{i=1}^{N}f(y_{i})^{1-\nu_{i}}S(y_{i})^{\nu_{i}}
-\]</span> ## Cure models</p>
-<p>Sometimes we are looking at populations among which some members are susceptible to an event and some are not. So a significant number of the population will not experience an event. If we suspect that some of the event times are right censored, then of the population that does not experience an event we will need to sort out individual who are not susceptible from individuals who are just censored. We can write down the survivor function <span class="math inline">\(S_{1}(y)\)</span> for the whole population (including both susceptible and unsusceptible individuals)</p>
-<p><span class="math display">\[
-S_{1}(y) = \pi + \left( 1 - \pi \right)S^{\ast}(y) 
 \]</span></p>
-<p>where <span class="math inline">\(\pi\)</span> is the probability of an individual not being susceptible to the event. <span class="math inline">\(S^{\ast}(y)\)</span> is the survivor function for the susceptible population. This is the standard model, but it doesn’t have a proportional hazards structure. So instead people use the function introduced by Yakovlev <em>et al</em>.</p>
-<div id="yakovlevs-cure-model" class="section level3">
-<h3>Yakovlev’s cure model</h3>
-<p>Let’s describe the following scenario. Suppose we are looking at the possible growth of a cancerous tumor. Suppose in an individual there are <span class="math inline">\(N\)</span> cells that could possibly metastisize. Suppose that the <span class="math inline">\(N\)</span> as a whole follow a Poisson distribution with mean <span class="math inline">\(\theta\)</span>. Let <span class="math inline">\(Z_{i}\)</span> be the time at which the <span class="math inline">\(i\text{th}\)</span> cancer cell will metastisize. Then we can write down to the probability of an individual not having any metastisized tumor cells by time <span class="math inline">\(y\)</span> as</p>
+<p>Lets look at some specific examples.</p>
+</div>
+</div>
+<div id="hazard-function-examples" class="section level1">
+<h1>Hazard function examples</h1>
+<div id="parameterized-models-exponential" class="section level2">
+<h2>Parameterized Models: Exponential</h2>
+<p>What happens if we choose a constant hazard function? Let’s let our hazard function be constant, given by</p>
 <p><span class="math display">\[
-S_{pop}(y) = Pr(N=0) + P(Z_{1}&gt;y, Z_{2}&gt;y...Z_{N}&gt;y,N\geq 1)
-\]</span> Since the <span class="math inline">\(N\)</span> follow a Poisson distribution, the probabilty that there are no cells at risk for metastisis is given by</p>
-<p><span class="math display">\[
-\text{Pr}(N=0) = \text{Poisson}(\theta, 0) = \exp\left( -\theta \right)
+h(t) = a
 \]</span></p>
-<p>The probability of having <span class="math inline">\(k\)</span> susceptible cells, and all of the surviving until time <span class="math inline">\(y\)</span> is given by</p>
+<p>Then the cumulative hazard will be</p>
 <p><span class="math display">\[
-\begin{eqnarray}
-Pr(Z_{1}&gt;y, Z_{2}&gt;y,...Z_{k}&gt;y, N = k) =&amp; &amp;Poisson(\theta, k)S(y)^{k} \\
-=&amp; &amp;\exp\left( -\theta \right)\left( \frac{\theta^{k}}{k!} \right)S(y)^{k} \\
-\end{eqnarray}
-\]</span> We can combine these expressions to say</p>
+H(t) = \int_{0}^{t}a d\tau = at
+\]</span> And our survival function is</p>
 <p><span class="math display">\[
-\begin{eqnarray}
-S_{pop}(y) =&amp; &amp;\exp \left( -\theta \right) + \sum_{i=1}^{\infty} S(y)^{k}\frac{\theta^{k}}{k!}\exp\left(-\theta \right) \\
-=&amp; &amp; \exp\left(-\theta \right)\left( 1 + \sum_{i=1}^{\infty}\frac{\left( \theta S(y)\right)^{k}}{k!} \right) \\
-=&amp; &amp; \exp\left( -\theta + \theta S(y) \right) \\
-=&amp; &amp; \exp\left( -\theta F(y)\right)
-\end{eqnarray}
+S(t) = e^{-H(t)} = e^{-at}
 \]</span></p>
-<p>where <span class="math inline">\(S(y)\)</span> is the survival function for individual cells, and <span class="math inline">\(F(y)\)</span> is the cumulative distribution function for the individual cells. If we look at these expressions, we can compute the fraction of individuals that are not susceptible at all to the cancer (i.e. the population with <span class="math inline">\(N=0\)</span> cells susceptible to metastisis) is given by</p>
+<p>From the survival function we can get the cumulative distibution function</p>
 <p><span class="math display">\[
-S_{pop}(\infty) = \exp \left( -\theta \right)
-\]</span> From this we can construct the survial function for the uncured population <span class="math inline">\(S^{\ast}(y)\)</span>.</p>
-<p><span class="math display">\[
-\begin{eqnarray}
-S^{\ast}(y) =&amp; &amp; \frac{S_{pop}(y) - S_{pop}(\infty)}{1 - S_{pop}(\infty)} \\
-=&amp; &amp; \frac{\exp \left( -\theta F(y)\right) - \exp \left( -\theta \right)}{1 - \exp\left( -\theta \right)}
-\end{eqnarray}
-\]</span> We can see that unlike <span class="math inline">\(S_{pop}(y)\)</span> which is not a proper survival curve (it never gets to zero), <span class="math inline">\(S^{\ast}(y)\)</span> is a proper survival function. <span class="math inline">\(S^{\ast}(y)\)</span> is the survival function for the uncured portion of the population. We can compute the pdf as</p>
-<p><span class="math display">\[
-\begin{eqnarray}
-f^{\ast}(y) =&amp; &amp; -\frac{dS^{\ast}(y)}{dt}\\
-=&amp; &amp; \left( \frac{\exp \left( -\theta F(y) \right)}{1 - \exp \left( -\theta \right)}\right)\theta f(y)
-\end{eqnarray}
+F(t) = 1 - S(t) = 1 -e^{-at}
 \]</span></p>
-<p>Note that by solving <span class="math inline">\(S^{\ast}(y)\)</span> for <span class="math inline">\(S_{pop}(y)\)</span> we can recover the standard cure model</p>
+<p>Lastly, we can get the probability density function for the events as</p>
 <p><span class="math display">\[
-S_{pop}(y) = \exp(-\theta) + \left( 1 - \exp(-\theta) \right)S^{\ast}(t)
+f(t) = \frac{F(t)}{dt} = -\frac{dS(t)}{dt} = ae^{-at}
 \]</span></p>
-<p>where we can see the that proportion of nonsusceptible individuals is given by</p>
+</div>
+<div id="parameterized-models-weibull" class="section level2">
+<h2>Parameterized Models: Weibull</h2>
+<p>The Weibull distribution is often used in Survival modeling for the probability density function. It is a particularly flexible function. Twe Weibull distribution is given as</p>
 <p><span class="math display">\[
-\pi = \exp(-\theta)
-\]</span> ### Liklihood of Ibrahim <em>et al</em>’s model</p>
-<p>Next we want to compute the liklihood of the data obtained from this model. In order to compute the liklihood, we we assume that <span class="math inline">\(f(y)\)</span> is a Weibull distribution. Our observed data is given by</p>
-<p><span class="math display">\[
-D_{obs} = \left( n, \mathbf{y}, \boldsymbol\nu \right)
-\]</span> where <span class="math inline">\(n\)</span> is the number of datapoints, <span class="math inline">\(\mathbf{y}\)</span> is a vector of of values where the <span class="math inline">\(i\text{th}\)</span> component <span class="math inline">\(y_{i}\)</span> is the failure time of the <span class="math inline">\(i\text{th}\)</span> individual.</p>
-<p>The complete data liklihood is given by</p>
-<p><span class="math display">\[
-\begin{eqnarray}
-\sum_{N} \mathcal{L}(\beta, \psi | D) =&amp; &amp;\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}\left( 1 - S(y_{i} | \psi ) \right) \right)\\
-=&amp; &amp;\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}F(y_{i} | \psi ) \right)\\
-\end{eqnarray}
+f(t;\alpha, \sigma) = \frac{\sigma}{\alpha}\left( \frac{t}{\alpha} \right)^{\sigma - 1}\exp \left( \frac{t}{\alpha}\right)^{\sigma}
 \]</span></p>
-<p>Typically the log-likelihood is a bit easier to work with from a computational point of view. The log-liklihood is given by</p>
+<p>We can integrate to get the cumulative density function</p>
 <p><span class="math display">\[
-\ln \mathcal{L}(\beta, \psi | D) = \sum_{i=1}^{n}\nu_{i}\ln f(y_{i}|\psi) + \nu_{i}\ln \theta - \theta F(y_{i}|\psi)
+F(t; \alpha, \sigma) = 1 - \left( \frac{t}{\alpha}\right)^{\sigma}\exp \left( \frac{t}{\alpha} \right)^{\sigma }
 \]</span></p>
+<p>Then our Survival function will be given by</p>
+<p><span class="math display">\[
+S(t; \alpha, \sigma) = \left( \frac{t}{\alpha}\right)^{\sigma}\exp \left( \frac{t}{\alpha} \right)^{\sigma}
+\]</span></p>
+<p>Using the probability density and the Survival function we can find the Weibull hazard function</p>
+<p><span class="math display">\[
+h(t; \alpha, \sigma) = \frac{f(t; \alpha, \sigma)}{S(t; \alpha, \sigma)} = \frac{\sigma}{\alpha^{\sigma}}t^{\sigma - 1}
+\]</span> The cumulative hazard is given by</p>
+<p><span class="math display">\[
+H(t; \alpha, \sigma) =\left( \frac{t}{\alpha}\right)^{\sigma}
+\]</span> With the cumulative Hazard function we can see the flexibility of the solution. <span class="math inline">\(\alpha\)</span> serves as a scale parameter. <span class="math inline">\(\sigma\)</span> is the shape parameter. If <span class="math inline">\(\sigma = 1\)</span>, then the cumulative hazard increases linearly, and we essentially recover the constant hazard model from before. If $&gt;1 $ the hazard grows with time. If <span class="math inline">\(\sigma &lt; 1\)</span> the hazard shrinks with time. So this is a relatively flexible model, capable of describing a lot of interesting behavior.</p>
 </div>
 </div>
 

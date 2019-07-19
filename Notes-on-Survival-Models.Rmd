@@ -43,12 +43,11 @@ library(gridExtra)
 ```
 
 
-I am working on getting a better handle on survival modeling techniques, and want to write up a little of what I have seen so far. In survival modeling we are looking at scenarios in which an event happens. We are interested in being able to estimate the time until the event happens. Survival models can be used to look at the spread of disease, characterizing mechanical failure, or looking at death rates. In this notebook, I will talk a little bit about survival models, following the discussion and notation of Ibrahim *et al* in their book *Bayesian Survival Analysis*. 
+I am working to get a better handle on survival modeling, and want to write up a little of what I have seen so far. In survival modeling we are analyzing "time to event". So we have some event, either a death, occurence of a disease, failure of a mechanical part, and we are interested how long it takes for the event to occur. In this notebook, I am going to try and lay out some of the basic ideas behind survival analysis. We will be using the notation adopted by Ibrahim *et al* in their book *Bayesian Survival Analysis*.
 
+# Terminology
 
-## Terminology
-
-Let $T$ be a continous random variable that represents the time until the event of interest happens for the individual in question. We can define $f(t)$ to be the probability density function (pdf) describing the distribution of $T$. Let $F(t)$ be the cumulative desnity function defined as
+Let $T$ be a continous random variable that represents the time until the event of interest happens for the individual in question. We can define $f(t)$ to be the probability density function (pdf) describing the distribution of $~T$. Let $F(t)$ be the cumulative desnity function defined as
 
 $$
 F(t) = Pr(T \leq t) = \int_{0}^{t}f(u)du
@@ -59,13 +58,16 @@ We can also define a function $S(t)$ called the survival function defined as
 $$
 S(t) = 1 - F(t) = Pr(T>t)
 $$
-This function $S(t)$ gives the probability of an individual surviving until time $t$. We can define another function $h(t)$ is defined as the instantaneous of failure at time $t$ and is given by
+
+The survival function $S(t)$ then is just the probability of surviving until time $t$.
+
+We can define one more function called the hazard function. The hazard function is roughly a measure of the risk that the event will occur in a given time interval. We define the hazard function as 
 
 $$
 h(t) = \lim_{\Delta t \rightarrow 0}\frac{Pr(t <T \leq t+\Delta t | t<T)}{\Delta t}
 $$
 
-Using Bayes' rule we can rewrite as a joint probability
+By manipulating this expression, we can rewrite the hazard function in a more familiar form. Using Bayes' rule we can rewrite as a joint probability
 
 $$
 \begin{eqnarray}
@@ -73,6 +75,7 @@ h(t) =& &\lim_{\Delta t \rightarrow 0} &\frac{Pr(t <T, T \leq t+\Delta t | t<T)}
 =& &\lim_{\Delta t \rightarrow 0} &\frac{Pr(T<t+\Delta t | t<T)}{\Delta t} \\
 =& &\lim_{\Delta t \rightarrow 0} &\frac{Pr(T<t+\Delta t , t<T )}{Pr(t<T)\Delta t} \\
 =& &\lim_{\Delta t \rightarrow 0} &\frac{Pr(t<T<t+\Delta t )}{S(t)\Delta t} \\
+=& &\lim_{\Delta t \rightarrow 0} &\frac{f(t)\Delta t}{S(t)\Delta t}\\
 =& & &\frac{f(t)}{S(t)} \\
 \end{eqnarray}
 $$
@@ -80,130 +83,97 @@ $$
 Since $f(t) = \frac{dF}{dt} = -\frac{dS}{dt}$ we can express the survival function in terms of the hazard as 
 
 $$
-\begin{eqnarray}
-h(t) =& &-\frac{1}{S(t)}\frac{dS(t)}{dt}\\
-S(t) =& &\exp \left( - \int_{0}^{t} h(u)du\right) \\ 
-\end{eqnarray}
+h(t) = -\frac{1}{S(t)}\frac{dS(t)}{dt}\\
 $$
-Finally, we define the cumulative hazard as
+
+So we have a first order differential equation. Solving the equation, we can write the survival function $S(t)$ in terms of the hazard function $h(t)$. Then
+
+$$
+S(t) = \exp \left( - \int_{0}^{t} h(u)du\right) \\ 
+$$
+
+Sometimes it is helpful to define a cumulative hazard function
 
 $$
 H(t) = \int_{0}^{t} h(u)du
 $$
 
-### Parameterized Models: Exponential
-
-### Parameterized Models: Weibull
-
-## Right-censored data
+what is going on here
+ 
+## Right censored data
 
 Many times, we do not have either the time or the resources to record data the whole time. In this case, some of the individuals will go through the entire observed period without experiencing an event. We refer to this as the data being right-censored. We want to write down the liklihood of a set of parameters given some data. Suppose the survival data for the $i\text{th}$ individual is given by $(y_{i}, \nu_{i})$ where $y_{i}$ is the last known survival time, and $\nu_{i}$ is an indicator that tells you whether the data has been censored or not. If $\nu_{i} = 1$ we have a censored event. If $\nu_{i}=0$ then data is uncensored and the event time $y_{i}$ is actually the true event time. Suppose we have $N$ individuals. Then in this censored model, the liklihood of the data given model parameters is 
 
 $$
 \mathcal{L} = \prod_{i=1}^{N}f(y_{i})^{1-\nu_{i}}S(y_{i})^{\nu_{i}}
 $$
-## Cure models
 
-Sometimes we are looking at populations among which some members are susceptible to an event and some are not. So a significant number of the population will not experience an event. If we suspect that some of the event times are right censored, then of the population that does not experience an event we will need to sort out individual who are not susceptible from individuals who are just censored. We can write down the survivor function $S_{1}(y)$ for the whole population (including both susceptible and unsusceptible individuals)
 
-$$
-S_{1}(y) = \pi + \left( 1 - \pi \right)S^{\ast}(y) 
-$$
+Lets look at some specific examples.
 
-where $\pi$ is the probability of an individual not being susceptible to the event. $S^{\ast}(y)$ is the survivor function for the susceptible population. This is the standard model, but it doesn't have a proportional hazards structure. So instead people use the function introduced by Yakovlev *et al*. 
+# Hazard function examples
+## Parameterized Models: Exponential
 
-### Yakovlev's cure model
-
-Let's describe the following scenario. Suppose we are looking at the possible growth of a cancerous tumor. Suppose in an individual there are $N$ cells that could possibly metastisize. Suppose that the $N$ as a whole follow a Poisson distribution with mean $\theta$. Let $Z_{i}$ be the time at which the $i\text{th}$ cancer cell will metastisize. Then we can write down to the probability of an individual not having any metastisized tumor cells by time $y$ as
+What happens if we choose a constant hazard function? Let's let our hazard function be constant, given by
 
 $$
-S_{pop}(y) = Pr(N=0) + P(Z_{1}>y, Z_{2}>y...Z_{N}>y,N\geq 1)
-$$
-Since the $N$ follow a Poisson distribution, the probabilty that there are no cells at risk for metastisis is given by 
-
-$$
-\text{Pr}(N=0) = \text{Poisson}(\theta, 0) = \exp\left( -\theta \right)
+h(t) = a
 $$
 
-The probability of having $k$ susceptible cells, and all of the surviving until time $y$ is given by
+Then the cumulative hazard will be 
 
 $$
-\begin{eqnarray}
-Pr(Z_{1}>y, Z_{2}>y,...Z_{k}>y, N = k) =& &Poisson(\theta, k)S(y)^{k} \\
-=& &\exp\left( -\theta \right)\left( \frac{\theta^{k}}{k!} \right)S(y)^{k} \\
-\end{eqnarray}
+H(t) = \int_{0}^{t}a d\tau = at
 $$
-We can combine these expressions to say
+And our survival function is
 
 $$
-\begin{eqnarray}
-S_{pop}(y) =& &\exp \left( -\theta \right) + \sum_{i=1}^{\infty} S(y)^{k}\frac{\theta^{k}}{k!}\exp\left(-\theta \right) \\
-=& & \exp\left(-\theta \right)\left( 1 + \sum_{i=1}^{\infty}\frac{\left( \theta S(y)\right)^{k}}{k!} \right) \\
-=& & \exp\left( -\theta + \theta S(y) \right) \\
-=& & \exp\left( -\theta F(y)\right)
-\end{eqnarray}
+S(t) = e^{-H(t)} = e^{-at}
 $$
 
-where $S(y)$ is the survival function for individual cells, and $F(y)$ is the cumulative distribution function for the individual cells. If we look at these expressions, we can compute the fraction of individuals that are not susceptible at all to the cancer (i.e. the population with $N=0$ cells susceptible to metastisis) is given by
+From the survival function we can get the cumulative distibution function
 
 $$
-S_{pop}(\infty) = \exp \left( -\theta \right)
-$$
-From this we can construct the survial function for the uncured population $S^{\ast}(y)$. 
-
-$$
-\begin{eqnarray}
-S^{\ast}(y) =& & \frac{S_{pop}(y) - S_{pop}(\infty)}{1 - S_{pop}(\infty)} \\
-=& & \frac{\exp \left( -\theta F(y)\right) - \exp \left( -\theta \right)}{1 - \exp\left( -\theta \right)}
-\end{eqnarray}
-$$
-We can see that unlike $S_{pop}(y)$ which is not a proper survival curve (it never gets to zero), $S^{\ast}(y)$ is a proper survival function. $S^{\ast}(y)$ is the survival function for the uncured portion of the population. We can compute the pdf as
-
-$$
-\begin{eqnarray}
-f^{\ast}(y) =& & -\frac{dS^{\ast}(y)}{dt}\\
-=& & \left( \frac{\exp \left( -\theta F(y) \right)}{1 - \exp \left( -\theta \right)}\right)\theta f(y)
-\end{eqnarray}
+F(t) = 1 - S(t) = 1 -e^{-at}
 $$
 
-Note that by solving $S^{\ast}(y)$ for $S_{pop}(y)$ we can recover the standard cure model
+Lastly, we can get the probability density function for the events as
 
 $$
-S_{pop}(y) = \exp(-\theta) + \left( 1 - \exp(-\theta) \right)S^{\ast}(t)
+f(t) = \frac{F(t)}{dt} = -\frac{dS(t)}{dt} = ae^{-at}
 $$
 
-where we can see the that proportion of nonsusceptible individuals is given by 
+## Parameterized Models: Weibull
+
+The Weibull distribution is often used in Survival modeling for the probability density function. It is a particularly flexible function. Twe Weibull distribution is given as 
 
 $$
-\pi = \exp(-\theta)
-$$
-### Liklihood of Ibrahim *et al*'s model
-
-Next we want to compute the liklihood of the data obtained from this model. In order to compute the liklihood, we we assume that $f(y)$ is a Weibull distribution. Our observed data is given by 
-
-$$
-D_{obs} = \left( n, \mathbf{y}, \boldsymbol\nu \right)
-$$
-where $n$ is the number of datapoints, $\mathbf{y}$ is a vector of of values where the $i\text{th}$ component $y_{i}$ is the failure time of the $i\text{th}$ individual.
-
-
-
-
-The complete data liklihood is given by 
-
-$$
-\begin{eqnarray}
-\sum_{N} \mathcal{L}(\beta, \psi | D) =& &\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}\left( 1 - S(y_{i} | \psi ) \right) \right)\\
-=& &\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}F(y_{i} | \psi ) \right)\\
-\end{eqnarray}
+f(t;\alpha, \sigma) = \frac{\sigma}{\alpha}\left( \frac{t}{\alpha} \right)^{\sigma - 1}\exp \left( \frac{t}{\alpha}\right)^{\sigma}
 $$
 
-Typically the log-likelihood is a bit easier to work with from a computational point of view. The log-liklihood is given by 
+We can integrate to get the cumulative density function 
 
 $$
-\ln \mathcal{L}(\beta, \psi | D) = \sum_{i=1}^{n}\nu_{i}\ln f(y_{i}|\psi) + \nu_{i}\ln \theta - \theta F(y_{i}|\psi)
+F(t; \alpha, \sigma) = 1 - \left( \frac{t}{\alpha}\right)^{\sigma}\exp \left( \frac{t}{\alpha} \right)^{\sigma }
 $$
 
+Then our Survival function will be given by 
+
+$$
+S(t; \alpha, \sigma) = \left( \frac{t}{\alpha}\right)^{\sigma}\exp \left( \frac{t}{\alpha} \right)^{\sigma}
+$$
+
+Using the probability density and the Survival function we can find the Weibull hazard function
+
+$$
+h(t; \alpha, \sigma) = \frac{f(t; \alpha, \sigma)}{S(t; \alpha, \sigma)} = \frac{\sigma}{\alpha^{\sigma}}t^{\sigma - 1}
+$$
+The cumulative hazard is given by
+
+$$
+H(t; \alpha, \sigma) =\left( \frac{t}{\alpha}\right)^{\sigma}
+$$
+With the cumulative Hazard function we can see the flexibility of the solution. $\alpha$ serves as a scale parameter. $\sigma$ is the shape parameter. If $\sigma = 1$, then the cumulative hazard increases linearly, and we essentially recover the constant hazard model from before. If $\sigma >1 $ the hazard grows with time. If $\sigma < 1$ the hazard shrinks with time. So this is a relatively flexible model, capable of describing a lot of interesting behavior.
 
 
 

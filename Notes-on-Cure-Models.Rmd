@@ -1,0 +1,148 @@
+---
+title: "Notes on Cure Models"
+author: "Kevin Schoelz"
+date: "July 18, 2019"
+output:
+  tufte::tufte_html:
+    toc: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+# Clear the environment
+rm(list = ls())
+gc(reset = TRUE)
+
+# Notebook Settings
+knitr::opts_chunk$set(
+  include = TRUE,
+  cache = TRUE,
+  collapse = TRUE,
+  echo = TRUE,
+  message = FALSE,
+  tidy = FALSE,
+  warning = FALSE,
+  comment = "  ",
+  dev = "png",
+  dev.args = list(bg = '#FFFFF8'),
+  dpi = 300,
+  fig.align = "center",
+  #fig.width = 7,
+  #fig.asp = 0.618,
+  fig.show = "hold",
+  out.width = "90%"
+)
+
+# Load useful libraries
+library(tufte)
+library(tidyverse)
+library(cowplot)
+library(gridExtra)
+
+```
+
+## Cure models
+
+Sometimes we are looking at populations among which some members are susceptible to an event and some are not. So a significant number of the population will not experience an event. If we suspect that some of the event times are right censored, then of the population that does not experience an event we will need to sort out individual who are not susceptible from individuals who are just censored. We can write down the survivor function $S_{1}(y)$ for the whole population (including both susceptible and unsusceptible individuals)
+
+$$
+S_{1}(y) = \pi + \left( 1 - \pi \right)S^{\ast}(y) 
+$$
+
+where $\pi$ is the probability of an individual not being susceptible to the event. $S^{\ast}(y)$ is the survivor function for the susceptible population. This is the standard model, but it doesn't have a proportional hazards structure. So instead people use the function introduced by Yakovlev *et al*. 
+
+### Yakovlev's cure model
+
+Let's describe the following scenario. Suppose we are looking at the possible growth of a cancerous tumor. Suppose in an individual there are $N$ cells that could possibly metastisize. Suppose that the $N$ as a whole follow a Poisson distribution with mean $\theta$. Let $Z_{i}$ be the time at which the $i\text{th}$ cancer cell will metastisize. Then we can write down to the probability of an individual not having any metastisized tumor cells by time $y$ as
+
+$$
+S_{pop}(y) = Pr(N=0) + P(Z_{1}>y, Z_{2}>y...Z_{N}>y,N\geq 1)
+$$
+Since the $N$ follow a Poisson distribution, the probabilty that there are no cells at risk for metastisis is given by 
+
+$$
+\text{Pr}(N=0) = \text{Poisson}(\theta, 0) = \exp\left( -\theta \right)
+$$
+
+The probability of having $k$ susceptible cells, and all of the surviving until time $y$ is given by
+
+$$
+\begin{eqnarray}
+Pr(Z_{1}>y, Z_{2}>y,...Z_{k}>y, N = k) =& &Poisson(\theta, k)S(y)^{k} \\
+=& &\exp\left( -\theta \right)\left( \frac{\theta^{k}}{k!} \right)S(y)^{k} \\
+\end{eqnarray}
+$$
+We can combine these expressions to say
+
+$$
+\begin{eqnarray}
+S_{pop}(y) =& &\exp \left( -\theta \right) + \sum_{i=1}^{\infty} S(y)^{k}\frac{\theta^{k}}{k!}\exp\left(-\theta \right) \\
+=& & \exp\left(-\theta \right)\left( 1 + \sum_{i=1}^{\infty}\frac{\left( \theta S(y)\right)^{k}}{k!} \right) \\
+=& & \exp\left( -\theta + \theta S(y) \right) \\
+=& & \exp\left( -\theta F(y)\right)
+\end{eqnarray}
+$$
+
+where $S(y)$ is the survival function for individual cells, and $F(y)$ is the cumulative distribution function for the individual cells. If we look at these expressions, we can compute the fraction of individuals that are not susceptible at all to the cancer (i.e. the population with $N=0$ cells susceptible to metastisis) is given by
+
+$$
+S_{pop}(\infty) = \exp \left( -\theta \right)
+$$
+From this we can construct the survial function for the uncured population $S^{\ast}(y)$. 
+
+$$
+\begin{eqnarray}
+S^{\ast}(y) =& & \frac{S_{pop}(y) - S_{pop}(\infty)}{1 - S_{pop}(\infty)} \\
+=& & \frac{\exp \left( -\theta F(y)\right) - \exp \left( -\theta \right)}{1 - \exp\left( -\theta \right)}
+\end{eqnarray}
+$$
+We can see that unlike $S_{pop}(y)$ which is not a proper survival curve (it never gets to zero), $S^{\ast}(y)$ is a proper survival function. $S^{\ast}(y)$ is the survival function for the uncured portion of the population. We can compute the pdf as
+
+$$
+\begin{eqnarray}
+f^{\ast}(y) =& & -\frac{dS^{\ast}(y)}{dt}\\
+=& & \left( \frac{\exp \left( -\theta F(y) \right)}{1 - \exp \left( -\theta \right)}\right)\theta f(y)
+\end{eqnarray}
+$$
+
+Note that by solving $S^{\ast}(y)$ for $S_{pop}(y)$ we can recover the standard cure model
+
+$$
+S_{pop}(y) = \exp(-\theta) + \left( 1 - \exp(-\theta) \right)S^{\ast}(t)
+$$
+
+where we can see the that proportion of nonsusceptible individuals is given by 
+
+$$
+\pi = \exp(-\theta)
+$$
+### Liklihood of Ibrahim *et al*'s model
+
+Next we want to compute the liklihood of the data obtained from this model. In order to compute the liklihood, we we assume that $f(y)$ is a Weibull distribution. Our observed data is given by 
+
+$$
+D_{obs} = \left( n, \mathbf{y}, \boldsymbol\nu \right)
+$$
+where $n$ is the number of datapoints, $\mathbf{y}$ is a vector of of values where the $i\text{th}$ component $y_{i}$ is the failure time of the $i\text{th}$ individual.
+
+
+
+
+The complete data liklihood is given by 
+
+$$
+\begin{eqnarray}
+\sum_{N} \mathcal{L}(\beta, \psi | D) =& &\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}\left( 1 - S(y_{i} | \psi ) \right) \right)\\
+=& &\prod_{i=1}^{n}\left(\theta_{i}f(y_{i}|\psi)\right)^{\nu_{i}}\exp \left( -\theta_{i}F(y_{i} | \psi ) \right)\\
+\end{eqnarray}
+$$
+
+Typically the log-likelihood is a bit easier to work with from a computational point of view. The log-liklihood is given by 
+
+$$
+\ln \mathcal{L}(\beta, \psi | D) = \sum_{i=1}^{n}\nu_{i}\ln f(y_{i}|\psi) + \nu_{i}\ln \theta - \theta F(y_{i}|\psi)
+$$
+
+
+
+
